@@ -7,28 +7,28 @@
 
  run `manage_autodl.py`:  
  ```   
-	what would you like to do?
-	(A)dd user
-	(R)emove user
-	(L)ist users
-	(D)ump track metadata
-	set (W)ebhook
-	(Q)uit
-	pick an option:
+what would you like to do?
+(A)dd user
+(R)emove user
+(L)ist users
+(D)ump track metadata
+set (W)ebhook
+(Q)uit
+pick an option:
 ```  
 
  run `autodl.py`:  
 ```  
-	usage: autodl.py [-h] -o DOWNLOADS_FOLDER [-d DELAY] [--skip-downloads] [--always-paginate]
+usage: autodl.py [-h] -o DOWNLOADS_FOLDER [-d DELAY] [--skip-downloads] [--always-paginate]
 
-	options:
-	  -h, --help            show this help message and exit
-	  -o DOWNLOADS_FOLDER, --downloads-folder DOWNLOADS_FOLDER
-							folder to download tracks to
-	  -d DELAY, --delay DELAY
-							how many seconds between checking for new tracks (default: 5)
-	  --skip-downloads      skip downloads and only save metadata
-	  --always-paginate     always check all tracks by artists (to get unprivated songs too)
+options:
+  -h, --help            show this help message and exit
+  -o DOWNLOADS_FOLDER, --downloads-folder DOWNLOADS_FOLDER
+						folder to download tracks to
+  -d DELAY, --delay DELAY
+						how many seconds between checking for new tracks (default: 5)
+  --skip-downloads      skip downloads and only save metadata
+  --always-paginate     always check all tracks by artists (to get unprivated songs too)
 ```  
  
  run `autodl.py` with `--skip-downloads` temporarily if you don't want it to download all existing tracks
