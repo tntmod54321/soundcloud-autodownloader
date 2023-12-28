@@ -1,0 +1,3 @@
+argparse
+requests
+yt_dlp
