@@ -37,6 +37,7 @@ options:
  * supports multiple users
  * saves full api metadata
  * upload files to discord with webhooks
+ * optionally check older tracks from user (in case an old track is unprivated)
  
 # notes
  you can access the saved api metadata by using [sqlite browser](https://sqlitebrowser.org/) to open the sqlite file, or by using the `D` option with `manage_autodl.py`
