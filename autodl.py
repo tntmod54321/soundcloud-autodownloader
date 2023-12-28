@@ -140,7 +140,7 @@ def main(args):
                 
                 new_tracks.update(user_new_tracks)
                 
-                # paginate if all tracks are new
+                # always paginate if all tracks are new
                 url = None
                 if ((len(user_new_tracks) == len(user_tracks)) or args.always_paginate) and j['next_href']:
                     url = j['next_href'] + f'&client_id={client_id}'
