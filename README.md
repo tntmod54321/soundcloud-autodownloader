@@ -36,7 +36,7 @@ options:
 # features
  * supports multiple users
  * saves full api metadata
- * upload files with discord webhooks
+ * upload files to discord with webhooks
  
 # notes
  you can access the saved api metadata by using [sqlite browser](https://sqlitebrowser.org/) to open the sqlite file, or by using the `D` option with `manage_autodl.py`
