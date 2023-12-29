@@ -13,10 +13,10 @@ def init_db(conn):
     cur.execute('CREATE TABLE IF NOT EXISTS users (id INT, permalink TEXT PRIMARY KEY)')
     
     # create tracks table
-    cur.execute('CREATE TABLE IF NOT EXISTS downloaded_tracks (id INT PRIMARY KEY, user_id INT, title TEXT)')
+    cur.execute('CREATE TABLE IF NOT EXISTS downloaded_audio (audio_id TEXT PRIMARY KEY, user_id INT, title TEXT)')
     
     # create track metas table
-    cur.execute('CREATE TABLE IF NOT EXISTS track_metas (id INT PRIMARY KEY, grabbed INT, metadata TEXT)')
+    cur.execute('CREATE TABLE IF NOT EXISTS track_metas (audio_id TEXT PRIMARY KEY, id INT, grabbed INT, metadata TEXT)')
     
     cur.close()
     conn.commit()

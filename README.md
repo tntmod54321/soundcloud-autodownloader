@@ -38,6 +38,8 @@ options:
  * saves full api metadata
  * upload files to discord with webhooks
  * optionally check older tracks from user (in case an old track is unprivated)
+ * can re-download tracks that have had their audio replaced
+ * doesn't care if a user changes their url
  
 # notes
  you can access the saved api metadata by using [sqlite browser](https://sqlitebrowser.org/) to open the sqlite file, or by using the `D` option with `manage_autodl.py`

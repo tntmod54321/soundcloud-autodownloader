@@ -20,7 +20,7 @@ class GetFilesPP(yt_dlp.postprocessor.PostProcessor):
 
 def fetch_client_id():
     page = requests.get('https://m.soundcloud.com', headers={'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Mobile Safari/537.36'})
-    if not page.status_code in [200]: raise Exception(f'unable to update client id')
+    if page.status_code != 200: raise Exception(f'unable to update client id')
     return re.search(r'"clientId":"([0-9a-zA-Z\-_]{32})",', page.text)[1]
 
 def check_new_tracks(tracks, dbname='autodl.sqlite', grabbed=time.time()):
@@ -28,13 +28,13 @@ def check_new_tracks(tracks, dbname='autodl.sqlite', grabbed=time.time()):
         cur = conn.cursor()
         
         # dedupe track list
-        cur.execute(f'SELECT id FROM downloaded_tracks WHERE id IN ({",".join([str(tid) for tid in tracks.keys()])})')
-        existing_track_ids = [row[0] for row in cur.fetchall()]
-        new_tracks = {t['id']: t for t in tracks.values() if not (t['id'] in existing_track_ids)}
+        cur.execute(f'''SELECT audio_id FROM downloaded_audio WHERE audio_id IN ('{"','".join(list(tracks.keys()))}')''')
+        existing_audio_ids = {row[0] for row in cur.fetchall()}
+        new_tracks = {aid: t for aid, t in tracks.items() if not aid in existing_audio_ids}
         
         # insert new metas
         for tid, t in tracks.items():
-            cur.execute('INSERT INTO track_metas (id, grabbed, metadata) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING', (tid, grabbed, json.dumps(t)))
+            cur.execute('INSERT INTO track_metas (audio_id, id, grabbed, metadata) VALUES (?, ?, ?, ?) ON CONFLICT (audio_id) DO NOTHING', (extractAudioID.search(t['waveform_url'])[1], t['id'], grabbed, json.dumps(t)))
         
         # save metas first in case download crashes and song gets deleted
         cur.close()
@@ -42,14 +42,9 @@ def check_new_tracks(tracks, dbname='autodl.sqlite', grabbed=time.time()):
     
     return new_tracks
 
+extractAudioID = re.compile(r'(?:waves?|w1)\.sndcdn\.com/([a-z0-9]{11,13})_(?:m|s)\.(?:png|json)', re.IGNORECASE)
 headers = {'Origin': 'https://soundcloud.com', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
 def main(args):
-    ydl_opts = {
-        # 'allowed_extractors': ['generic', 'soundcloud'],
-        'paths': {'home': args.downloads_folder},
-        'writeinfojson': True,
-        'writethumbnail': True}
-    
     # make outdir if needed
     if not isdir(args.downloads_folder):
         makedirs(args.downloads_folder)
@@ -57,17 +52,12 @@ def main(args):
     if not isfile('autodl.sqlite'):
         print('couldn\'t find database, have you ran manage_autodl.py yet?'); exit()
     
-    # open db conn
-    connst = time.time()
-    conn = sqlite3.connect('autodl.sqlite', )
-    
     # test/load client id
     with sqlite3.connect('autodl.sqlite') as conn:
         cur = conn.cursor()
         cur.execute('SELECT key, value FROM vars;')
         dbvars = {row[0]: row[1] for row in cur.fetchall()}
         client_id = dbvars.get('sc_client_id') if dbvars.get('sc_client_id') else None
-        
         
         # test client id
         if client_id:
@@ -78,12 +68,12 @@ def main(args):
         if (not client_id) or (resp.status_code == 401):
             print('fetching new soundcloud client_id...')
             client_id = fetch_client_id()
-            cur.execute(f'INSERT INTO vars (key, value) VALUES (\'sc_client_id\', ?) ON CONFLICT (key) DO UPDATE SET value = value;', (client_id,))
+            cur.execute(f'INSERT INTO vars (key, value) VALUES (\'sc_client_id\', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;', (client_id,))
         
         cur.close()
         conn.commit()
     
-    # load user id / track ids
+    # load user ids
     with sqlite3.connect('autodl.sqlite') as conn:
         cur = conn.cursor()
         
@@ -123,7 +113,6 @@ def main(args):
                 page += 1
                 print(f'checking {permalink} for new tracks (page {page})')
                 
-                ### TODO: move this to a function for retries/better error handling
                 try:
                     rqst = time.time()
                     resp = requests.get(url, headers=headers)
@@ -135,7 +124,7 @@ def main(args):
                     time.sleep(args.delay); continue
                 
                 j = resp.json()
-                user_tracks = {t['id']: t for t in j['collection']}
+                user_tracks = {extractAudioID.search(t['waveform_url'])[1]: t for t in j['collection']}
                 user_new_tracks = check_new_tracks(user_tracks, grabbed=rqst)
                 
                 new_tracks.update(user_new_tracks)
@@ -152,25 +141,35 @@ def main(args):
         track_files = {}
         track_exts = {}
         downloaded_tracks = {}
-        with YoutubeDL(ydl_opts) as ydl:
-            filespp = GetFilesPP()
-            ydl.add_post_processor(filespp, when='post_process')
+        for audio_id, t in new_tracks.items():
+            ### optionally skip dl
+            if args.skip_downloads:
+                print(f'skipping download for {t["user"]["permalink"]} - {t["permalink"]} (id: {t["id"]})')
+                downloaded_tracks[audio_id] = t
+                continue
+            print(f'downloading {t["user"]["permalink"]} - {t["permalink"]} (id: {t["id"]})')
             
-            for t in new_tracks.values():
-                if args.skip_downloads:
-                    print(f'skipping download for {t["user"]["permalink"]} - {t["permalink"]} (id: {t["id"]})')
-                    downloaded_tracks[t['id']] = t
-                else:
-                    print(f'downloading {t["user"]["permalink"]} - {t["permalink"]} (id: {t["id"]})')
-                    
-                    try:
-                        ydl.download([f'https://api-v2.soundcloud.com/tracks/{t["id"]}'])
-                        downloaded_tracks[t['id']] = t
-                        track_files[t['id']] = filespp.files[t['id']]
-                        track_exts[t['id']] = filespp.exts[t['id']]
-                    except yt_dlp.utils.DownloadError:
-                        print('download failed, skipping for now')
-                    except Exception as e:
+            # set opts, incl output fnames
+            ydl_opts = {
+                'writeinfojson': True,
+                'writethumbnail': True,
+                'allowed_extractors': ['soundcloud.*', 'generic'],
+                'paths': {'home': join(args.downloads_folder, t['user']['permalink'])},
+                'outtmpl': {'default': f'%(webpage_url_basename)s [%(id)s] [{audio_id}].%(ext)s'}}
+            
+            # do download
+            with YoutubeDL(ydl_opts) as ydl:
+                filespp = GetFilesPP()
+                ydl.add_post_processor(filespp, when='post_process')
+                
+                try:
+                    ydl.download([f'https://api-v2.soundcloud.com/tracks/{t["id"]}'])
+                    downloaded_tracks[audio_id] = t
+                    track_files[t['id']] = filespp.files[t['id']]
+                    track_exts[t['id']] = filespp.exts[t['id']]
+                except yt_dlp.utils.DownloadError:
+                    print('download failed, skipping for now')
+                except Exception as e:
                         print('\nERROR ERROR ERROR ERROR ERROR ERROR ERROR\n')
                         print(e)
                         print(type(e))
@@ -180,8 +179,8 @@ def main(args):
         if downloaded_tracks:
             with sqlite3.connect('autodl.sqlite') as conn:
                 cur = conn.cursor()
-                for t in downloaded_tracks.values():
-                    cur.execute(f'INSERT INTO downloaded_tracks (id, user_id, title) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING', (t['id'], t['user']['id'], t['title']))
+                for audio_id, t in downloaded_tracks.items():
+                    cur.execute(f'INSERT INTO downloaded_audio (audio_id, user_id, title) VALUES (?, ?, ?) ON CONFLICT (audio_id) DO NOTHING', (audio_id, t['user']['id'], t['title']))
                 cur.close()
                 conn.commit()
             
@@ -193,7 +192,7 @@ def main(args):
                 for t in downloaded_tracks.values():
                     print(f'sending webhook for {t["user"]["permalink"]}_{t["permalink"]}')
                     
-                    data = {'username': 'soundcloud autodl', 'content': f'grabbed {t["title"]} by {t["user"]["username"]}'}
+                    data = {'username': 'soundcloud autodl', 'content': f'new track: {t["title"]} by {t["user"]["username"]}'}
                     files = {}
                     if track_files.get(t['id']):
                         with open(track_files[t['id']], 'rb') as fh:
