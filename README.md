@@ -42,4 +42,6 @@ options:
  * doesn't care if a user changes their url
  
 # notes
- you can access the saved api metadata by using [sqlite browser](https://sqlitebrowser.org/) to open the sqlite file, or by using the `D` option with `manage_autodl.py`
+ you can access the saved api metadata by using [sqlite browser](https://sqlitebrowser.org/) to open the sqlite file, or by using the `D` option with `manage_autodl.py`  
+   
+ the more users you add the more you'll probably want to increase the delay, I use 60 seconds for 8 users with always-paginate, but you can probably get away with less than that
