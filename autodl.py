@@ -192,7 +192,7 @@ def main(args):
                 for t in downloaded_tracks.values():
                     print(f'sending webhook for {t["user"]["permalink"]}_{t["permalink"]}')
                     
-                    data = {'username': 'soundcloud autodl', 'content': f'new track: {t["title"]} by {t["user"]["username"]}'}
+                    data = {'username': 'soundcloud autodl', 'content': f'new track: {t["title"]} by {t["user"]["username"]}\n<{t["permalink_url"]}>'}
                     files = {}
                     if track_files.get(t['id']):
                         with open(track_files[t['id']], 'rb') as fh:
